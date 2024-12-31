@@ -29,7 +29,7 @@ export function Hero() {
           </h1>
           
           <p className="max-w-2xl mx-auto text-xl text-purple-100 opacity-90">
-            Discover and explore amazing projects built with Bolt.new.
+            Discover and explore amazing projects built with Bolt.new!
           </p>
           
           <div className="flex items-center justify-center space-x-4">
