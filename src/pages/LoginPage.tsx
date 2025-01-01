@@ -1,16 +1,13 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { LogIn, Mail, Lock } from 'lucide-react';
 import { useScrollToTop } from '../hooks/useScrollToTop';
 import { useAuth } from '../contexts/AuthContext';
-import { TestAccountsTable } from '../components/TestAccountsTable';
-import { useDevMode } from '../contexts/DevModeContext';
+import { debugService } from '../services/debug';
 
 export function LoginPage() {
   useScrollToTop();
-  const navigate = useNavigate();
   const { login } = useAuth();
-  const { devMode } = useDevMode();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,19 +18,15 @@ export function LoginPage() {
     setError('');
     setIsLoading(true);
     
+    debugService.log('auth', 'Login Form Submit', { email });
+    
     try {
       await login(email, password);
-      const redirectPath = sessionStorage.getItem('redirect_after_login');
-      if (redirectPath) {
-        sessionStorage.removeItem('redirect_after_login');
-        navigate(redirectPath);
-      } else if (email === 'admin@admin.com') {
-        navigate('/admin');
-      } else {
-        navigate('/profile');
-      }
+      debugService.log('auth', 'Login Form Success', { email });
     } catch (err) {
-      setError((err as Error).message);
+      const error = err as Error;
+      debugService.log('auth', 'Login Form Error', { error: error.message }, 'error');
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +96,8 @@ export function LoginPage() {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200 text-sm" dangerouslySetInnerHTML={{ __html: error }}>
+              <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-200 text-sm">
+                {error}
               </div>
             )}
 
@@ -121,7 +115,6 @@ export function LoginPage() {
               Create an account
             </Link>
           </div>
-          {devMode && !error && <TestAccountsTable />}
         </div>
       </div>
     </div>

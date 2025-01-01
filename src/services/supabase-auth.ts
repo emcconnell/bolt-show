@@ -12,14 +12,14 @@ export async function signIn(email: string, password: string): Promise<AuthRespo
     throw new Error(error.message);
   }
 
-  if (!data.user) {
-    throw new Error('No user data returned');
+  if (!data.user || !data.session) {
+    throw new Error('No user data or session returned');
   }
-  
+
   // Get user's role from the users table
   const { data: userData, error: userError } = await supabase
     .from('users')
-    .select('role')
+    .select('role, status')
     .eq('id', data.user.id)
     .single();
 
@@ -27,42 +27,27 @@ export async function signIn(email: string, password: string): Promise<AuthRespo
     throw new Error('Failed to get user role');
   }
 
-  // Check if user has a profile
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('user_id', data.user.id)
-    .single();
+  // Set the session in Supabase client
+  await supabase.auth.setSession({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token
+  });
 
-  // If no profile exists, create one
-  if (profileError?.code === 'PGRST116') {
-    const { error: createProfileError } = await supabase
-      .from('profiles')
-      .insert({
-        user_id: data.user.id,
-        display_name: data.user.user_metadata.name || data.user.email,
-        display_preferences: {
-          showProfilePicture: true,
-          showCompanyLogo: false,
-          showSocialLinks: true,
-          showContactInfo: false,
-          profileVisibility: 'public'
-        }
-      });
-
-    if (createProfileError) {
-      console.error('Failed to create profile:', createProfileError);
-    }
-  }
   return {
+    session: {
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      expires_in: data.session.expires_in,
+      token_type: data.session.token_type
+    },
     user: {
       id: data.user.id,
       email: data.user.email!,
       name: data.user.user_metadata.name || '',
       avatar: data.user.user_metadata.avatar_url || '',
-      role: userData.role || 'user'
-    },
-    token: data.session?.access_token || ''
+      role: userData.role || 'user',
+      status: userData.status || 'active'
+    }
   };
 }
 
@@ -82,13 +67,13 @@ export async function signUp(email: string, password: string, username: string) 
     if (error) {
       throw new Error(error.message);
     }
-    
+
     if (!data.user) {
       throw new Error('No user data returned from auth signup');
     }
 
     // Create user record and wait for it
-    const { error: userError } = await supabase 
+    const { error: userError } = await supabase
       .from('users')
       .insert({
         id: data.user.id,
@@ -100,7 +85,7 @@ export async function signUp(email: string, password: string, username: string) 
     if (userError) {
       throw new Error(`Failed to create user record: ${userError.message}`);
     }
-    
+
     // Create profile record and wait for response
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
@@ -157,7 +142,7 @@ export async function signOut() {
 
 export async function getCurrentUser() {
   const { data: { user }, error } = await supabase.auth.getUser();
-  
+
   if (error) {
     throw new Error(error.message);
   }
